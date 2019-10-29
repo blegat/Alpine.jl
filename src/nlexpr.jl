@@ -59,15 +59,12 @@ function expr_parsing(m::AlpineNonlinearModel)
 	if expr_obj.head == :call
 		if length(expr_obj.args) == 3 && expr_obj.args[1] == :^
 			if trunc(expr_obj.args[3]) != expr_obj.args[3]
-				println("----here0--------")
 				error("Alpine currently supports ^ operator with only positive integer exponents")
 			end
 		end
 		for i=1:length(expr_obj.args)
 			if typeof(expr_obj.args[i]) == Expr
-				if (expr_obj.args[i].args[1] == :^) && (trunc(expr_obj.args[i].args[3]) != expr_obj.args[i].args[3])
-					error("Alpine currently supports ^ operator with only positive integer exponents")
-				end
+				expr_parsing(expr_obj.args[i])
 			end
 		end
 	end
