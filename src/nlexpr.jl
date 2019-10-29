@@ -64,7 +64,7 @@ function expr_parsing(m::AlpineNonlinearModel)
 		end
 		for i=1:length(expr_obj.args)
 			if typeof(expr_obj.args[i]) == Expr
-				expr_parsing(expr_obj.args[i])
+				expr_parsing(expr_obj.args[i]) # Recursively search for fractional exponents
 			end
 		end
 	end
