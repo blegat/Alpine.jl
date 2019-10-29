@@ -56,18 +56,19 @@ function expr_parsing(m::AlpineNonlinearModel)
 	@show expr_obj
 	
 	# Throw an error if obj. expression has fractional exponents
-	if expr_obj.head == :call
-		if length(expr_obj.args) == 3 && expr_obj.args[1] == :^
-			if trunc(expr_obj.args[3]) != expr_obj.args[3]
-				error("Alpine currently supports ^ operator with only positive integer exponents")
-			end
-		end
-		for i=1:length(expr_obj.args)
-			if typeof(expr_obj.args[i]) == Expr
-				expr_parsing(expr_obj.args[i]) # Recursively search for fractional exponents
-			end
-		end
-	end
+	expr_isfracexp(expr_obj)
+	# if expr_obj.head == :call
+	# 	if length(expr_obj.args) == 3 && expr_obj.args[1] == :^
+	# 		if trunc(expr_obj.args[3]) != expr_obj.args[3]
+	# 			error("Alpine currently supports ^ operator with only positive integer exponents")
+	# 		end
+	# 	end
+	# 	for i=1:length(expr_obj.args)
+	# 		if typeof(expr_obj.args[i]) == Expr
+	# 			expr_parsing(expr_obj.args[i]) # Recursively search for fractional exponents
+	# 		end
+	# 	end
+	# end
 
 	is_strucural = expr_constr_parsing(m.bounding_obj_expr_mip, m)
 	
@@ -617,4 +618,19 @@ function expr_isconst(expr)
 	end
 
 	return const_tree
+end
+
+function expr_isfracexp(expr)
+	if expr.head == :call
+		if length(expr.args) == 3 && expr.args[1] == :^
+			if trunc(expr.args[3]) != expr.args[3]
+				error("Alpine currently supports ^ operator with only positive integer exponents")
+			end
+		end
+		for i=1:length(expr.args)
+			if typeof(expr.args[i]) == Expr
+				expr_isfracexp(expr.args[i]) # Recursively search for fractional exponents
+			end
+		end
+	end
 end
