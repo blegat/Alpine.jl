@@ -52,8 +52,28 @@ end
 	STEP 3: parse expression for patterns on either the generic level or term level
 """
 function expr_parsing(m::AlpineNonlinearModel)
+	expr_obj = m.bounding_obj_expr_mip
+	@show expr_obj
+	
+	# Throw an error if obj. expression has fractional exponents
+	if expr_obj.head == :call
+		if length(expr_obj.args) == 3 && expr_obj.args[1] == :^
+			if trunc(expr_obj.args[3]) != expr_obj.args[3]
+				println("----here0--------")
+				error("Alpine currently supports ^ operator with only positive integer exponents")
+			end
+		end
+		for i=1:length(expr_obj.args)
+			if typeof(expr_obj.args[i]) == Expr
+				if (expr_obj.args[i].args[1] == :^) && (trunc(expr_obj.args[i].args[3]) != expr_obj.args[i].args[3])
+					error("Alpine currently supports ^ operator with only positive integer exponents")
+				end
+			end
+		end
+	end
 
 	is_strucural = expr_constr_parsing(m.bounding_obj_expr_mip, m)
+	
 	if !is_strucural
 		m.bounding_obj_expr_mip = expr_term_parsing(m.bounding_obj_expr_mip, 0, m)
 		m.obj_structure = :generic_linear
@@ -254,7 +274,7 @@ function expr_linear_to_affine(expr)
 	affdict = Dict()
    isa(expr, Number) && return affdict
 	if expr.args[1] in [:(==), :(>=), :(<=)] # For a constraint expression
-		@assert isa(expr.args[3], Float64) || isa(expr.args[3], Int)
+		@assert isa(expr.args[3], Number) 
 		@assert isa(expr.args[2], Expr)
 		# non are buffer spaces, not used anywhere
 		lhscoeff, lhsvars, rhs, non, non = traverse_expr_linear_to_affine(expr.args[2])
@@ -266,7 +286,11 @@ function expr_linear_to_affine(expr)
 		rhs = 0
 		affdict[:sense] = nothing
 	else # For an objective expression
+		println("------here1------")
+		@show expr
+
 		lhscoeff, lhsvars, rhs, non, non = traverse_expr_linear_to_affine(expr)
+		println("------here2------")
 		affdict[:sense] = nothing
 	end
 
@@ -296,8 +320,8 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 		end
 		return 1.0
 	end
-
-	if isa(expr, Float64) || isa(expr, Int) # Capture any coefficients or right hand side
+	@show expr
+	if isa(expr, Number) # Capture any coefficients or right hand side
 		(bufferVal != nothing) ? bufferVal *= expr : bufferVal = expr * coef
 		return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 	elseif expr in [:+, :-]    # TODO: what is this condition?
@@ -312,14 +336,14 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 		return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 	elseif expr in [:(<=), :(==), :(>=)]
 		return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
-	elseif expr in [:/, :^]
-		error("Alpine currently supports `$expr` operator with only positive integer exponents")
+	# elseif expr in [:/, :^]
+	# 	error("Alpine currently supports `$expr` operator with only positive integer exponents")
 	elseif expr.head == :ref
 		bufferVar = expr
 		return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 	end
 
-	# HOTPATCH : Special Structure Recognization
+	# HOTPATCH : Special Structure Recognition
 	start_pos = 1
 	if (expr.args[1] == :*) && (length(expr.args) == 3)
 		if (isa(expr.args[2], Float64) || isa(expr.args[2], Int)) && (expr.args[3].head == :call)
@@ -367,6 +391,7 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 		end
 	end
 
+	@show lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 	return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 end
 
