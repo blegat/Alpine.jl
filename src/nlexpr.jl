@@ -55,20 +55,11 @@ function expr_parsing(m::AlpineNonlinearModel)
 	expr_obj = m.bounding_obj_expr_mip
 	@show expr_obj
 	
-	# Throw an error if obj. expression has fractional exponents
+	# Throw an error if obj. expression has non-integer exponents
 	expr_isfracexp(expr_obj)
-	# if expr_obj.head == :call
-	# 	if length(expr_obj.args) == 3 && expr_obj.args[1] == :^
-	# 		if trunc(expr_obj.args[3]) != expr_obj.args[3]
-	# 			error("Alpine currently supports ^ operator with only positive integer exponents")
-	# 		end
-	# 	end
-	# 	for i=1:length(expr_obj.args)
-	# 		if typeof(expr_obj.args[i]) == Expr
-	# 			expr_parsing(expr_obj.args[i]) # Recursively search for fractional exponents
-	# 		end
-	# 	end
-	# end
+
+	# Isolate the constants involved inside integer exponents
+	m.bounding_obj_expr_mip = expr_isolate_const(expr_obj)
 
 	is_strucural = expr_constr_parsing(m.bounding_obj_expr_mip, m)
 	
@@ -94,8 +85,8 @@ end
 	STEP 4: convert the parsed expressions into affine-based function that can be used for adding JuMP constraints
 """
 function expr_conversion(m::AlpineNonlinearModel)
-
-	if m.obj_structure == :generic_linear
+	
+	if m.obj_structure == :generic_linear 
 		m.bounding_obj_mip = expr_linear_to_affine(m.bounding_obj_expr_mip)
 		m.obj_structure = :affine
 	end
@@ -127,7 +118,7 @@ end
 
 
 """
-	STEP 5: collect measurements and information as needed for handly operations in the algorithm section
+	STEP 5: collect measurements and information as needed for handy operations in the algorithm section
 """
 function expr_finalized(m::AlpineNonlinearModel)
 
@@ -212,12 +203,12 @@ function expr_constr_parsing(expr, m::AlpineNonlinearModel, idx::Int=0)
     
       isa(expr, Number) && return false
     # Recognize built-in special structural pattern
-    if m.recognize_convex
+	if m.recognize_convex
         is_convex = resolve_convex_constr(expr, m, idx)
         is_convex && return true
-    end
+	end
 
-    # More patterns goes here
+    # More pattern recognitions will go here
 
     return false
 end
@@ -225,7 +216,7 @@ end
 function expr_is_axn(expr, scalar=1.0, var_idxs=[], power=[]; N=nothing)
 
     # @show "inner recursive input $(expr)"
-    expr.args[1] in [:*,:^] || return nothing, nothing, nothing         # Limited Area
+	expr.args[1] in [:*,:^] || return nothing, nothing, nothing 
 
     if expr.args[1] == :*
         for i in 2:length(expr.args)
@@ -242,7 +233,7 @@ function expr_is_axn(expr, scalar=1.0, var_idxs=[], power=[]; N=nothing)
         end
     elseif expr.args[1] == :^
         for i in 2:length(expr.args)
-            if isa(expr.args[i], Float64) || isa(expr.args[i], Int)
+            if isa(expr.args[i], Number)
                 push!(power, expr.args[i])
                 continue
             elseif (expr.args[i].head == :ref)
@@ -284,11 +275,7 @@ function expr_linear_to_affine(expr)
 		rhs = 0
 		affdict[:sense] = nothing
 	else # For an objective expression
-		println("------here1------")
-		@show expr
-
 		lhscoeff, lhsvars, rhs, non, non = traverse_expr_linear_to_affine(expr)
-		println("------here2------")
 		affdict[:sense] = nothing
 	end
 
@@ -318,7 +305,7 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 		end
 		return 1.0
 	end
-	@show expr
+	
 	if isa(expr, Number) # Capture any coefficients or right hand side
 		(bufferVal != nothing) ? bufferVal *= expr : bufferVal = expr * coef
 		return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
@@ -343,7 +330,7 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 
 	# HOTPATCH : Special Structure Recognition
 	start_pos = 1
-	if (expr.args[1] == :*) && (length(expr.args) == 3)
+	if (expr.args[1] == :*)  && (length(expr.args) == 3)
 		if (isa(expr.args[2], Float64) || isa(expr.args[2], Int)) && (expr.args[3].head == :call)
 			(coef != 0.0) ? coef = expr.args[2] * coef : coef = expr.args[2]	# Patch
 			# coef = expr.args[2]
@@ -353,7 +340,9 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 	end
 	
 	for i in start_pos:length(expr.args)
-		lhscoeff, lhsvars, rhs, bufferVal, bufferVar = traverse_expr_linear_to_affine(expr.args[i], lhscoeffs, lhsvars, rhs, bufferVal, bufferVar, sign*sign_convertor(expr, i), coef, level+1)
+		if typeof(expr.args[i]) == Expr
+			lhscoeff, lhsvars, rhs, bufferVal, bufferVar = traverse_expr_linear_to_affine(expr.args[i], lhscoeffs, lhsvars, rhs, bufferVal, bufferVar, sign*sign_convertor(expr, i), coef, level+1)
+		end
 		if expr.args[1] in [:+, :-]  # Term segmentation [:-, :+], see this and wrap-up the current (linear) term
 			if bufferVal != nothing && bufferVar != nothing  # (sign) * (coef) * (var) => linear term
 				push!(lhscoeffs, sign*sign_convertor(expr, i)*bufferVal)
@@ -389,7 +378,6 @@ function traverse_expr_linear_to_affine(expr, lhscoeffs=[], lhsvars=[], rhs=0.0,
 		end
 	end
 
-	@show lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 	return lhscoeffs, lhsvars, rhs, bufferVal, bufferVar
 end
 
@@ -620,6 +608,9 @@ function expr_isconst(expr)
 	return const_tree
 end
 
+"""
+	Check if a sub-tree(:call) is contains any non-integer exponent values
+"""
 function expr_isfracexp(expr)
 	if expr.head == :call
 		if length(expr.args) == 3 && expr.args[1] == :^
@@ -634,3 +625,49 @@ function expr_isfracexp(expr)
 		end
 	end
 end
+
+"""
+	Converts ((a_1*x[1])^2 + (a_2*x[2])^2 + ... + (a_n*x[n])^2) to (a_1^2*x[1]^2 + a_2^2*x[2]^2 + ... + a_n^2*x[n]^2)
+	Signs in the summation can be +/- 
+	Note: This function does not support terms of type (a*(x[1] + x[2]))^2 yet. 
+"""
+function expr_isolate_const(expr)
+	if (expr.head == :call && expr.args[1] in [:+,:-]) 
+	   expr_array = Any[]
+	   for i=2:length(expr.args)
+		  ind = 0 
+		  # Handle negative sign in the first term
+		  if (expr.args[i].args[1] == :-) && (length(expr.args[i].args) == 2)
+			 expr_i = expr.args[i].args[2]
+			 ind = 1
+		  else
+			 expr_i = expr.args[i]
+		  end
+		  if (expr.args[i].head == :call && expr_i.args[1] == :^) 
+			 expr_tmp = Expr(:call, :^, expr_i.args[2].args[3], expr_i.args[3])
+			 if ((expr.args[1] == :-) && (i == 3)) || (ind == 1)
+				push!(expr_array, Expr(:call, :*, -expr_i.args[2].args[2] ^ expr_i.args[3], expr_tmp))
+			 else
+				push!(expr_array, Expr(:call, :*, expr_i.args[2].args[2] ^ expr_i.args[3], expr_tmp))
+			 end
+		  # Handle negative sign in the remaining terms
+		  elseif (expr_i.args[1] in [:+,:-]) && (length(expr.args[i].args) > 2)
+			 expr_rec = expr_isolate_const(expr_i) #recursion
+			 push!(expr_array, expr_rec)
+		  end
+	   end   
+ 
+	   # Construct the expression from the array
+	   expr_n = Expr(:call, :+, expr_array[1], expr_array[2])
+	   if length(expr_array) >= 3
+		  for i = 3:length(expr_array)
+			 expr_n = Expr(:call, :+, expr_n, expr_array[i])
+		  end
+	   end
+	   return(expr_n)
+ 
+	elseif (expr.head == :call && expr.args[1] == :^) 
+	   expr_tmp = Expr(:call, :^, expr.args[2].args[3], expr.args[3])
+	   return(Expr(:call, :*, expr.args[2].args[2] ^ expr.args[3], expr_tmp))
+	end
+ end

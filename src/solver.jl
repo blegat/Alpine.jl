@@ -711,12 +711,12 @@ function MathProgBase.loadproblem!(m::AlpineNonlinearModel,
             m.constr_structure[i] = :generic_nonlinear
         end
     end
-
+    
     @assert m.num_constr_orig == m.num_nlconstr_orig + m.num_lconstr_orig
     m.is_obj_linear_orig = interface_is_obj_linear(m.d_orig)
     m.is_obj_linear_orig ? (m.obj_structure = :generic_linear) : (m.obj_structure = :generic_nonlinear)
     isa(m.obj_expr_orig, Number) && (m.obj_structure = :constant)
-
+    
     # populate data to create the bounding model
     recategorize_var(m)             # Initial round of variable re-categorization
 

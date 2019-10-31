@@ -1171,15 +1171,15 @@ function resolve_convex_constr(expr::Any, m::AlpineNonlinearModel=nothing, idx::
         expr_orig = :obj
         subs, rhs = expr_strip_const(expr)              # Focus on the regularized subtree (stripped with constants)
     end
-
+    
     for sub in subs
-        (isa(sub, Float64) || isa(sub, Int) || isa(sub, Symbol)) && return false
-        !(sub.args[1] in [:+,:-,:*]) && return false
+        (isa(sub, Number) || isa(sub, Symbol)) && return false
+        !(sub.args[1] in [:+,:-,:*,:^]) && return false
         (sub.head == :ref) && return false
         (sub.head == :call) && (length(sub.args) < 3) && return false
         if sub.args[1] in [:-, :+]
             for i in 2:length(sub.args)
-                if isa(sub.args[i], Float64) || isa(sub.args[i], Int)
+                if isa(sub.args[i], Number)
                     (sub.args[1] == [:-]) && ((i == 1) ? rhs += sub.args[i] : rhs -= sub.args[i])
                     (sub.args[1] == [:+]) && (rhs += sub.args[i])
                 elseif (sub.args[i].head == :ref)
@@ -1225,7 +1225,7 @@ function resolve_convex_constr(expr::Any, m::AlpineNonlinearModel=nothing, idx::
         (expr.args[1] == :(<=)) && (scalar_sign <= 0.0) && return false
         (expr.args[1] == :(>=)) && (scalar_sign >= 0.0) && return false
     end
-
+    
     if expr_orig == :constr
         # For anything reaches this point, we've detected most common attributes of a convex expression
         # Now, we should use the differences to indicate different types of convex expression
@@ -1287,9 +1287,11 @@ function resolve_convex_constr(expr::Any, m::AlpineNonlinearModel=nothing, idx::
 
         m.loglevel > 99 && println("CONVEX Constraint $(idx): $(expr)")
 
+        
         return true
+        
     elseif expr_orig == :obj
-
+        
         convex_type = :Unknown
         (expr_isconst(m.obj_expr_orig)) && return true
         # Follows the same mapping to convex constraints
