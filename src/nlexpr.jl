@@ -63,10 +63,12 @@ function expr_parsing(m::AlpineNonlinearModel)
 	@show m.bounding_obj_expr_mip
 
 	is_strucural = expr_constr_parsing(m.bounding_obj_expr_mip, m)
+	# is_strucural = false
 	@show is_strucural
 	
 	if !is_strucural
 		m.bounding_obj_expr_mip = expr_term_parsing(m.bounding_obj_expr_mip, 0, m)
+		@show m.bounding_obj_expr_mip
 		m.obj_structure = :generic_linear
 	end
 	(m.loglevel > 199) && println("[OBJ] $(m.obj_expr_orig)")

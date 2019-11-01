@@ -48,7 +48,6 @@ function logging_summary(m::AlpineNonlinearModel)
         println("  #Variables involved in nonlinear terms = ", length(m.candidate_disc_vars))
         println("  #Potential variables for partitioning = ", length(m.disc_vars))
 
-        println("\n=======================================================================")
         printstyled("SUB-SOLVERS USED BY ALPINE\n", color=:cyan)
         # m.minlp_solver != UnsetSolver() && println("MINLP local solver = ", split(string(m.minlp_solver),".")[1])
         if string(m.minlp_solver) == "Alpine.UnsetSolver()"
@@ -57,7 +56,6 @@ function logging_summary(m::AlpineNonlinearModel)
             println("  MINLP local solver = ", split(string(m.minlp_solver),"S")[1])
         end
         println("  MIP solver = ", split(string(m.mip_solver),"S")[1])
-        println("\n=======================================================================")
         printstyled("ALPINE CONFIGURATION\n", color=:cyan)
         println("  Maximum solution time = ", m.timeout)
         println("  Maximum iterations =  ", m.maxiter)
@@ -87,36 +85,34 @@ function logging_summary(m::AlpineNonlinearModel)
         # m.presolve_bt && println("bound tightening presolve output tolerance = ", m.presolve_bt_output_tol)
         # m.presolve_bt && println("bound tightening presolve relaxation = ", m.presolve_bt_relax)
         # m.presolve_bt && println("bound tightening presolve mip regulation time = ", m.presolve_bt_mip_timeout)
-        println("\n=======================================================================")
+        # println("\n=======================================================================")
     end
 
     # Additional warnings
     m.mip_solver_id == "Gurobi" && @warn "Alpine only supports Gurobi v7.0+ ..."
 end
 
-function logging_head(m::AlpineNonlinearModel)
-    println("\n====================================================================================================")
+function logging_head(m::AlpineNonlinearModel)  
     if m.sense_orig == :Min
-        printstyled("LOWER-BOUNDING ITERATIONS \n\n", color=:cyan)
+        printstyled("LOWER-BOUNDING ITERATIONS", color=:cyan)
         UB_iter = "Incumbent"
         UB = "Best Incumbent"
         LB = "Lower Bound"
     elseif m.sense_orig == :Max
-        printstyled("UPPER-BOUNDING ITERATIONS \n\n", color=:cyan)
+        printstyled("UPPER-BOUNDING ITERATIONS", color=:cyan)
         UB_iter = "Incumbent"
         UB = "Best Incumbent"
         LB = "Upper Bound"
     end
-
+    println("\n====================================================================================================")
 	if m.logs[:time_left] < Inf
         printstyled("| Iter   | $UB_iter       | $UB      | $LB        | Gap (%)         | Time         | TIME LEFT      \n")
 	else
         printstyled("| Iter   | $UB_iter       | $UB      | $LB        | Gap (%)         | Time      \n")
-	end
+    end
 end
 
 function logging_row_entry(m::AlpineNonlinearModel; kwargs...)
-
 
     options = Dict(kwargs)
 
@@ -166,33 +162,7 @@ function logging_row_entry(m::AlpineNonlinearModel; kwargs...)
 
     haskey(options, :finish_entry) ? (ITER_block = string(" ", "finish ")) : (ITER_block = string(" ", m.logs[:n_iter]," " ^ (7 - length(string(m.logs[:n_iter])))))
 
-    if m.colorful_alpine == "random"
-        colors = [:blue, :cyan, :green, :red, :light_red, :light_blue, :light_cyan, :light_green, :light_magenta, :light_re, :light_yellow, :white, :yellow]
-        print(" |")
-        printstyled(rand(colors),UB_block)
-        print("|")
-        printstyled(rand(colors),LB_block)
-        print("|")
-        printstyled(rand(colors),incumb_UB_block)
-        print("|")
-        printstyled(rand(colors),incumb_LB_block)
-        print("|")
-        printstyled(rand(colors),GAP_block)
-        print("|")
-        printstyled(rand(colors),UTIME_block)
-        print("|")
-        printstyled(rand(colors),LTIME_block)
-        print("|")
-        printstyled(rand(colors),ITER_block)
-        print("\n")
-    elseif m.colorful_alpine == "solarized"
-        printstyled(m.logs[:n_iter]+21, " |$(UB_block)|$(incumb_UB_block)|$(incumb_LB_block)|$(GAP_block)|$(UTIME_block)|$(LTIME_block)|$(ITER_block)\n")
-    elseif m.colorful_alpine == "warmer"
-        printstyled(max(20,170-m.logs[:n_iter]), " |$(UB_block)|$(incumb_UB_block)|$(incumb_LB_block)|$(GAP_block)|$(UTIME_block)|$(LTIME_block)|$(ITER_block)\n")
-    elseif m.colorful_alpine == false
-        # println("|",ITER_block,"|",UB_block,"|",LB_block,"|",incumb_UB_block,"|",incumb_LB_block,"|",GAP_block,"|",UTIME_block,"|",LTIME_block)
-        println("|",ITER_block,"|",UB_block,"|",incumb_UB_block,"|",incumb_LB_block,"|",GAP_block,"|",UTIME_block,LTIME_block)
-    end
+    println("|",ITER_block,"|",UB_block,"|",incumb_UB_block,"|",incumb_LB_block,"|",GAP_block,"|",UTIME_block,LTIME_block)
     return
 end
 

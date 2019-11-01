@@ -2,8 +2,7 @@ export AlpineSolver
 
 mutable struct AlpineNonlinearModel <: MathProgBase.AbstractNonlinearModel
 
-    # external developer parameters for testing and debugging
-    colorful_alpine::Any                                           # Colorful output (remove)
+    # Parameters for tuning Alpine
 
     # basic solver parameters
     loglevel::Int                                               # Verbosity flag: 0 for quiet, 1 for basic solve info, 2 for iteration info
@@ -161,8 +160,8 @@ mutable struct AlpineNonlinearModel <: MathProgBase.AbstractNonlinearModel
     alpine_status::Symbol                                       # Current Alpine's status
 
     # constructor
-    function AlpineNonlinearModel(colorful_alpine,
-                                loglevel, timeout, maxiter, relgap, gapref, absgap, tol, largebound,
+    function AlpineNonlinearModel(loglevel, 
+                                timeout, maxiter, relgap, gapref, absgap, tol, largebound,
                                 nlp_solver,
                                 minlp_solver,
                                 mip_solver,
@@ -206,8 +205,6 @@ mutable struct AlpineNonlinearModel <: MathProgBase.AbstractNonlinearModel
                                 int_fully_disc)
 
         m = new()
-
-        m.colorful_alpine = colorful_alpine
 
         m.loglevel = loglevel
         m.timeout = timeout
@@ -322,8 +319,6 @@ const empty_solver = UnsetSolver()
 
 mutable struct AlpineSolver <: MathProgBase.AbstractMathProgSolver
 
-    colorful_alpine::Any
-
     loglevel::Int
     timeout::Float64
     maxiter::Int
@@ -386,7 +381,6 @@ mutable struct AlpineSolver <: MathProgBase.AbstractMathProgSolver
 end
 
 function AlpineSolver(;
-    colorful_alpine = false,
 
     loglevel = 1,
     timeout = Inf,
@@ -479,8 +473,8 @@ function AlpineSolver(;
         disc_var_pick = 3
     end
 
-    # Deep-copy the solvers because we may change option values inside Alpine
-    AlpineSolver(colorful_alpine,
+    # Deep-copy the solver options because Alpine may modify some options
+    AlpineSolver(
         loglevel, timeout, maxiter, relgap, gapref, absgap, tol, largebound,
         deepcopy(nlp_solver),
         deepcopy(minlp_solver),
@@ -529,8 +523,6 @@ function AlpineSolver(;
 function MathProgBase.NonlinearModel(s::AlpineSolver)
     
     # Translate options into old nonlinearmodel.jl fields
-    colorful_alpine = s.colorful_alpine
-
     loglevel = s.loglevel
     timeout = s.timeout
     maxiter = s.maxiter
@@ -589,8 +581,8 @@ function MathProgBase.NonlinearModel(s::AlpineSolver)
     int_cumulative_disc = s.int_cumulative_disc
     int_fully_disc = s.int_fully_disc
 
-    return AlpineNonlinearModel(colorful_alpine,
-                            loglevel, timeout, maxiter, relgap, gapref, absgap, tol, largebound,
+    return AlpineNonlinearModel(loglevel, 
+                                timeout, maxiter, relgap, gapref, absgap, tol, largebound,
                             nlp_solver,
                             minlp_solver,
                             mip_solver,

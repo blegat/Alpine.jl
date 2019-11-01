@@ -48,7 +48,7 @@ function create_bounding_mip(m::AlpineNonlinearModel; use_disc=nothing)
     cputime_build = time() - start_build
     m.logs[:total_time] += cputime_build
     m.logs[:time_left] = max(0.0, m.timeout - m.logs[:total_time])
-
+    # print(m.model_mip)
     return
 end
 
